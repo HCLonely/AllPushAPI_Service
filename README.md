@@ -6,9 +6,12 @@
 - Web 管理面板（React + Ant Design）
 - 用户体系（注册/登录/角色）
 - API Key 推送调用
-- 推送配置模板与路由规则
 
 ## 快速开始
+
+### 0) 安装环境
+
+- [NodeJS >= v20.0.0](https://nodejs.org/zh-cn/download)
 
 ### 1) 安装依赖
 
