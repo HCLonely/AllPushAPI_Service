@@ -10,3 +10,4 @@ apps/api/prisma/prisma/dev.db
 
 .vercel
 .env*.local
+data/

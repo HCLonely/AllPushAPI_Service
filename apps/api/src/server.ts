@@ -256,6 +256,8 @@ export const createServer = async () => {
   await app.register(jwt, { secret: JWT_SECRET });
 
   app.setErrorHandler((error, request, reply) => {
+    request.log.error(error);
+
     if (error instanceof z.ZodError) {
       return reply.code(400).send({ message: '请求参数错误', issues: error.issues });
     }
