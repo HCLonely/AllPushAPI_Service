@@ -166,3 +166,7 @@ systemctl restart allpush-api     # 重启
 systemctl stop allpush-api        # 停止
 journalctl -u allpush-api -f      # 查看日志
 ```
+
+## LICENSE
+
+[Apache License 2.0](https://github.com/HCLonely/AllPushAPI_Service/blob/main/LICENSE)
