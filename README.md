@@ -79,7 +79,42 @@ curl -X POST "http://localhost:3000/api/v1/push/send" \
 
 ## Docker 部署
 
-### 使用 docker-compose（推荐）
+### 使用预构建镜像（推荐）
+
+镜像自动跟随 `main` 分支构建，无需本地编译。
+
+```bash
+docker pull ghcr.io/hclonely/allpushapi_service:main
+
+docker run -d \
+  -p 3000:3000 \
+  -v $(pwd)/data:/data \
+  -e JWT_SECRET=your-secret-key \
+  -e ADMIN_USERNAME=admin \
+  -e ADMIN_PASSWORD=your-password \
+  ghcr.io/hclonely/allpushapi_service:main
+```
+
+镜像详情页：[ghcr.io/hclonely/allpushapi_service](https://github.com/users/hclonely/packages/container/package/allpushapi_service)
+
+docker-compose 方式：
+
+```yaml
+services:
+  allpush-api:
+    image: ghcr.io/hclonely/allpushapi_service:main
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/data
+    environment:
+      - JWT_SECRET=your-secret-key
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=your-password
+    restart: unless-stopped
+```
+
+### 使用 docker-compose 本地构建
 
 ```bash
 # 构建并启动
