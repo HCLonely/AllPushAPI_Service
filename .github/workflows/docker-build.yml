@@ -33,7 +33,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GN_TOKEN }}
+          password: ${{ secrets.GH_TOKEN }}
 
       - name: Docker image name
         id: image
