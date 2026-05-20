@@ -1,0 +1,10 @@
+node_modules
+.history
+.claude
+.git
+*.log
+.env
+apps/api/dist
+apps/web/dist
+apps/web/public/api-docs.generated.html
+apps/api/prisma/prisma

@@ -1,0 +1,17 @@
+{
+  "name": "all-push-api-platform",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "npm run dev:api",
+    "dev:api": "npm run dev --workspace @allpush/api",
+    "build": "npm run build --workspace @allpush/api && npm run build --workspace @allpush/web",
+    "start": "npm run start --workspace @allpush/api",
+    "test": "npm run test --workspace @allpush/api",
+    "service": "sudo bash scripts/install-service.sh"
+  }
+}
