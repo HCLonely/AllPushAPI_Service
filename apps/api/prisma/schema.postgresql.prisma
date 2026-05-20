@@ -1,0 +1,203 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum ApiKeyStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum PushServiceProvider {
+  ALL_PUSHER_API
+}
+
+enum PushStatus {
+  SUCCESS
+  PARTIAL_FAILED
+  FAILED
+}
+
+enum DeliveryStatus {
+  SUCCESS
+  FAILED
+}
+
+model User {
+  id           String      @id @default(cuid())
+  username     String      @unique
+  passwordHash String
+  role         UserRole    @default(USER)
+  status       UserStatus  @default(ACTIVE)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  lastLoginAt  DateTime?
+
+  apiKeys         ApiKey[]
+  pushServices    PushService[]
+  channelConfigs  ChannelConfig[]
+  pushRequests    PushRequest[]
+  pushDeliveries  PushDelivery[]
+  accessLogs      AccessLog[]
+  routingRules    RoutingRule[]
+}
+
+model ApiKey {
+  id          String       @id @default(cuid())
+  userId      String
+  serviceName String?
+  name        String
+  keyPrefix   String
+  keyHash     String       @unique
+  status      ApiKeyStatus @default(ACTIVE)
+  expiresAt   DateTime?
+  lastUsedAt  DateTime?
+  createdAt   DateTime     @default(now())
+  revokedAt   DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pushRequests PushRequest[]
+
+  @@index([userId, status])
+  @@index([userId, serviceName, status])
+}
+
+model PushService {
+  id         String              @id @default(cuid())
+  userId     String
+  name       String
+  provider   PushServiceProvider @default(ALL_PUSHER_API)
+  authConfig Json?
+  timeoutMs  Int                 @default(10000)
+  isEnabled  Boolean             @default(true)
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channelConfigs ChannelConfig[]
+  pushDeliveries PushDelivery[]
+
+  @@unique([userId, name])
+  @@index([userId, isEnabled])
+}
+
+model ChannelConfig {
+  id            String   @id @default(cuid())
+  userId         String
+  serviceId      String
+  platform       String
+  configName     String
+  configPayload  Json
+  tags           String?
+  priority       Int      @default(100)
+  isEnabled      Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  service     PushService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  deliveries  PushDelivery[]
+
+  @@unique([userId, serviceId, platform, configName])
+  @@index([userId, platform, isEnabled])
+}
+
+model RoutingRule {
+  id              String   @id @default(cuid())
+  userId          String
+  name            String
+  isEnabled       Boolean  @default(true)
+  priority        Int      @default(100)
+  matchAllTags    String?
+  platforms       Json?
+  targetConfigIds Json
+  stopOnMatch     Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isEnabled, priority])
+  @@unique([userId, name])
+}
+
+model PushRequest {
+  id              String     @id @default(cuid())
+  userId           String
+  apiKeyId         String?
+  requestId        String     @unique
+  sourceIp         String?
+  userAgent        String?
+  payload          Json
+  resolvedTargets  Json?
+  status           PushStatus
+  errorMessage     String?
+  createdAt        DateTime   @default(now())
+  finishedAt       DateTime?
+
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiKey     ApiKey?   @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  deliveries PushDelivery[]
+
+  @@index([userId, createdAt])
+}
+
+model PushDelivery {
+  id              String         @id @default(cuid())
+  pushRequestId   String
+  userId          String
+  serviceId       String
+  channelConfigId String
+  platform        String
+  configName      String
+  status          DeliveryStatus
+  responseCode    Int?
+  responseBody    String?
+  latencyMs       Int?
+  createdAt       DateTime       @default(now())
+
+  pushRequest   PushRequest   @relation(fields: [pushRequestId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  service       PushService   @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  channelConfig ChannelConfig @relation(fields: [channelConfigId], references: [id], onDelete: Cascade)
+
+  @@index([pushRequestId])
+  @@index([userId, createdAt])
+}
+
+model AccessLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  path       String
+  method     String
+  statusCode Int
+  sourceIp   String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
+}
+
+model SystemSetting {
+  key       String   @id
+  value     String
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+}
