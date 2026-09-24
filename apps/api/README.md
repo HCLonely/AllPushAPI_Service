@@ -43,7 +43,7 @@
 | 字段 | 类型 | 必填 | 约束 | 说明 |
 |---|---|---:|---|---|
 | username | string | 是 | 最少 3 位 | 用户名 |
-| password | string | 是 | 最少 6 位 | 密码 |
+| password | string | 是 | 至少 8 字符，最多 72 字节 | 密码 |
 
 成功响应（201）：
 
@@ -119,7 +119,7 @@
 | 字段 | 类型 | 必填 | 说明 |
 |---|---|---:|---|
 | username | string | 是 | 最少 3 位 |
-| password | string | 是 | 最少 6 位 |
+| password | string | 是 | 至少 8 字符，最多 72 字节 |
 | role | `USER`/`ADMIN` | 否 | 默认 `USER` |
 
 ### 3.3 修改用户状态
@@ -196,9 +196,8 @@
 | 字段 | 类型 | 必填 | 说明 |
 |---|---|---:|---|
 | name | string | 创建必填 | 服务名称 |
-| baseUrl | string(url) | 创建必填 | 服务地址 |
-| authConfig | object | 否 | 鉴权配置 |
-| timeoutMs | number | 否 | 1-60000 |
+| authConfig | object | 否 | 旧版兼容字段，推送不使用；请在平台配置中填写认证信息 |
+| timeoutMs | number | 否 | 1-60000，默认 10000；超时终止投递，送达结果可能未知 |
 | isEnabled | boolean | 否 | 是否启用 |
 
 ---
@@ -414,3 +413,13 @@ curl -X POST "http://localhost:3000/api/v1/push/send" \
 - 说明：按照 `logRetentionDays` 清理历史日志。
 
 ---
+
+## 安全和分页补充
+
+- `GET /api/v1/logs/push-requests` 支持 `page`（默认 1）和 `pageSize`（1–200，默认 200），返回 `items, total, page, pageSize`。
+- `requestId` 全局唯一，重复返回 409；不保证第三方 exactly-once 送达。
+- 删除服务会撤销所有绑定密钥，不能使用旧密钥调用同名新服务。
+- 错误状态保留 400 / 401 / 403 / 404 / 409 / 429；API 响应禁止缓存。
+- 禁止禁用当前登录账户；所有用户响应都不包含密码哈希。
+- 私有网络和用户代理默认被禁止；自建内网环境需显式配置 `ALLOW_PRIVATE_NETWORK=true`。邮件不允许引用服务器文件或远程 URL 附件。
+- 设置 `ALLOW_REGISTRATION=false` 后注册返回 403。

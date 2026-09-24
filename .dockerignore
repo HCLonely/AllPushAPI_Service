@@ -8,3 +8,9 @@ apps/api/dist
 apps/web/dist
 apps/web/public/api-docs.generated.html
 apps/api/prisma/prisma
+artifacts
+test-results
+playwright-report
+data
+.env.*.local
+*.tsbuildinfo

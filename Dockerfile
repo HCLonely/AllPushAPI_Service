@@ -10,8 +10,7 @@ RUN npm ci --workspaces --include-workspace-root
 
 COPY . .
 
-RUN npm run build \
- && npx prisma generate --schema=apps/api/prisma/schema.prisma
+RUN npm run build
 
 # Stage 2: Runtime
 FROM node:22-alpine

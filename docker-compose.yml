@@ -6,8 +6,8 @@ services:
     volumes:
       - ./data:/data
     environment:
-      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - JWT_SECRET=${JWT_SECRET:?Set a random JWT_SECRET of at least 32 characters}
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?Set an ADMIN_PASSWORD of at least 12 characters}
       - LOG_RETENTION_DEFAULT_DAYS=${LOG_RETENTION_DEFAULT_DAYS:-30}
     restart: unless-stopped

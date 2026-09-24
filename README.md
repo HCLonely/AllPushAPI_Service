@@ -11,7 +11,7 @@
 
 ### 0) 安装环境
 
-- [NodeJS >= v20.0.0](https://nodejs.org/zh-cn/download)
+- [NodeJS >= v22.12.0](https://nodejs.org/zh-cn/download)
 
 ### 1) 安装依赖
 
@@ -19,7 +19,13 @@
 npm install
 ```
 
-### 2) 初始化数据库
+### 2) 配置环境并初始化数据库
+
+复制 `.env.example` 为 `.env`，填写随机 `JWT_SECRET`（至少 32 字符）和 `ADMIN_PASSWORD`（生产至少 12 字符）。首次启动不再创建使用默认密码的管理员。
+
+```bash
+cp .env.example .env
+```
 
 ```bash
 npm run prisma:push -w @allpush/api
@@ -33,7 +39,7 @@ npm run build
 
 ### 4) 启动
 
-开发模式：
+开发模式（API）：
 
 ```bash
 npm run dev
@@ -45,7 +51,7 @@ npm run dev
 npm start
 ```
 
-默认访问：`http://localhost:3000`
+默认访问：`http://localhost:3000`。前端热更新可在另一终端运行 `npm run dev:web`，访问 `http://localhost:5173`；开发服务器会代理 API 到 3000 端口。
 
 ## API 文档入口
 
@@ -76,6 +82,9 @@ curl -X POST "http://localhost:3000/api/v1/push/send" \
 - `LOG_RETENTION_DEFAULT_DAYS`
 - `PORT`（可选，默认 3000）
 - `HOST`（可选，默认 `0.0.0.0`）
+- `ALLOW_REGISTRATION`（可选，设为 `false` 关闭公开注册）
+- `ALLOW_PRIVATE_NETWORK`（默认 `false`；仅受信任自建部署可设为 `true` 访问内网渠道及代理）
+- `LOG_LEVEL`（默认 `info`）
 
 ## Docker 部署
 
@@ -89,9 +98,9 @@ docker pull ghcr.io/hclonely/allpushapi_service:main
 docker run -d \
   -p 3000:3000 \
   -v $(pwd)/data:/data \
-  -e JWT_SECRET=your-secret-key \
+  -e JWT_SECRET=replace-with-a-random-secret-at-least-32-chars \
   -e ADMIN_USERNAME=admin \
-  -e ADMIN_PASSWORD=your-password \
+  -e ADMIN_PASSWORD=replace-with-a-strong-password \
   ghcr.io/hclonely/allpushapi_service:main
 ```
 
@@ -108,9 +117,9 @@ services:
     volumes:
       - ./data:/data
     environment:
-      - JWT_SECRET=your-secret-key
+      - JWT_SECRET=replace-with-a-random-secret-at-least-32-chars
       - ADMIN_USERNAME=admin
-      - ADMIN_PASSWORD=your-password
+      - ADMIN_PASSWORD=replace-with-a-strong-password
     restart: unless-stopped
 ```
 
@@ -134,9 +143,9 @@ docker build -t all-push-api .
 docker run -d \
   -p 3000:3000 \
   -v $(pwd)/data:/data \
-  -e JWT_SECRET=your-secret-key \
+  -e JWT_SECRET=replace-with-a-random-secret-at-least-32-chars \
   -e ADMIN_USERNAME=admin \
-  -e ADMIN_PASSWORD=your-password \
+  -e ADMIN_PASSWORD=replace-with-a-strong-password \
   all-push-api
 ```
 

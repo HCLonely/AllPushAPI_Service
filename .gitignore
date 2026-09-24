@@ -11,3 +11,8 @@ apps/api/prisma/prisma/dev.db
 .vercel
 .env*.local
 data/
+
+*.tsbuildinfo
+artifacts/
+playwright-report/
+test-results/
