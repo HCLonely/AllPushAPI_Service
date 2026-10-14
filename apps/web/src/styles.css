@@ -687,6 +687,11 @@ p {
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .ant-select-dropdown,
+  .ant-popover,
+  .ant-tooltip {
+    transform: none !important;
+  }
   *,
   *::before,
   *::after {

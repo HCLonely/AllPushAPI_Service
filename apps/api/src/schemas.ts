@@ -33,8 +33,10 @@ export const pushServiceSchema = z.object({
   timeoutMs: z.number().int().positive().max(60000).optional(),
   isEnabled: z.boolean().optional()
 });
-export const channelSchema = z.object({
-  serviceId: z.string().trim().min(1).max(120),
+const channelFields = z.object({
+  serviceId: z.string().trim().min(1).max(120).optional(),
+  serviceIds: z.array(z.string().trim().min(1).max(120)).min(1)
+    .refine((ids) => new Set(ids).size === ids.length, '不能重复绑定同一个服务').optional(),
   platform: z.string().trim().min(1).max(120),
   configName: z.string().trim().min(1).max(120),
   configPayload: z.record(z.any()),
@@ -42,6 +44,13 @@ export const channelSchema = z.object({
   priority: z.number().int().optional(),
   isEnabled: z.boolean().optional()
 });
+const consistentBindings = (body: { serviceId?: string; serviceIds?: string[] }) =>
+  !body.serviceId || !body.serviceIds || body.serviceId === body.serviceIds[0];
+export const channelSchema = channelFields
+  .refine((body) => !!(body.serviceId || body.serviceIds), { path: ['serviceIds'], message: '至少绑定一个推送服务' })
+  .refine(consistentBindings, { path: ['serviceId'], message: 'serviceId 必须与 serviceIds 的首项一致' });
+export const channelUpdateSchema = channelFields.partial()
+  .refine(consistentBindings, { path: ['serviceId'], message: 'serviceId 必须与 serviceIds 的首项一致' });
 export const pushSchema = z
   .object({
     title: z.string().optional(),

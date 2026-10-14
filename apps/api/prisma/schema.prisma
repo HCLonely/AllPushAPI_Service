@@ -87,9 +87,10 @@ model PushService {
   createdAt  DateTime            @default(now())
   updatedAt  DateTime            @updatedAt
 
-  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  channelConfigs ChannelConfig[]
-  pushDeliveries PushDelivery[]
+  user            User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channelConfigs  ChannelConfig[]
+  channelBindings ChannelConfigService[]
+  pushDeliveries  PushDelivery[]
 
   @@unique([userId, name])
   @@index([userId, isEnabled])
@@ -98,6 +99,7 @@ model PushService {
 model ChannelConfig {
   id            String   @id @default(cuid())
   userId         String
+  // Legacy primary service, also included in bindings.
   serviceId      String
   platform       String
   configName     String
@@ -110,10 +112,22 @@ model ChannelConfig {
 
   user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   service     PushService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  bindings    ChannelConfigService[]
   deliveries  PushDelivery[]
 
   @@unique([userId, serviceId, platform, configName])
   @@index([userId, platform, isEnabled])
+}
+
+model ChannelConfigService {
+  channelConfigId String
+  serviceId       String
+
+  channelConfig ChannelConfig @relation(fields: [channelConfigId], references: [id], onDelete: Cascade)
+  service       PushService   @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@id([channelConfigId, serviceId])
+  @@index([serviceId])
 }
 
 model RoutingRule {

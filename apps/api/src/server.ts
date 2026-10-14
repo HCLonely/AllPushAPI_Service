@@ -16,6 +16,7 @@ import { registerAccountsRoutes } from './routes/accounts.js';
 import { registerResourcesRoutes } from './routes/resources.js';
 import { registerPushRoutes } from './routes/push.js';
 import { registerLogsRoutes } from './routes/logs.js';
+import { ensureChannelServiceBindings } from './channel-bindings.js';
 
 type AuthUser = { id: string; role: UserRole };
 
@@ -150,6 +151,7 @@ export const createServer = async () => {
     }
   }
 
+  await ensureChannelServiceBindings();
   await ensureAdmin();
   await getRetentionDays();
   await cleanupLogs();

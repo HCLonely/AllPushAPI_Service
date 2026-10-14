@@ -3,6 +3,7 @@ export type PushService = { id: string; name: string; isEnabled: boolean; timeou
 export type ChannelConfig = {
   id: string;
   serviceId: string;
+  serviceIds: string[];
   platform: string;
   configName: string;
   tags?: string;

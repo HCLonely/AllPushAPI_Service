@@ -133,6 +133,15 @@
 |---|---|---:|---|
 | status | `ACTIVE`/`DISABLED` | 是 | 用户状态 |
 
+### 3.4 删除用户
+
+- **DELETE** `/api/v1/admin/users/:id`
+- 认证：JWT（ADMIN）
+- 功能：永久删除指定用户及其 API Key、服务、平台配置、服务绑定、路由规则、推送日志和访问日志；系统设置保留，清空其更新者引用。
+- 无请求体。成功响应（200）：`{ "success": true }`。
+- 删除后，原 JWT 和 API Key 均不可再使用；其他用户的数据不受影响。
+- 错误：`400` 不能删除当前登录账户；`401` 未登录或账户不可用；`403` 非管理员；`404` 用户不存在。
+
 ---
 
 ## 4. API Key 接口
@@ -142,7 +151,7 @@
 - **GET** `/api/v1/api-keys`
 - 认证：JWT
 
-响应：`items[]` 包含 `id, name, keyPrefix, status, expiresAt, lastUsedAt, createdAt`。
+响应：`items[]` 包含 `id, name, serviceName, keyPrefix, status, expiresAt, lastUsedAt, createdAt`。
 
 ### 4.2 创建 API Key
 
@@ -154,6 +163,7 @@
 | 字段 | 类型 | 必填 | 约束 | 说明 |
 |---|---|---:|---|---|
 | name | string | 是 | 非空 | Key 名称 |
+| serviceName | string | 是 | 非空，须为当前用户已有服务名称 | 绑定的推送服务；每个密钥只调用一个服务 |
 | expiresAt | string | 否 | ISO datetime | 过期时间 |
 
 成功响应会返回一次明文密钥：
@@ -162,6 +172,7 @@
 |---|---|---|
 | id | string | 记录 ID |
 | name | string | 名称 |
+| serviceName | string | 绑定服务名称 |
 | apiKey | string | 明文 Key（仅此处可见） |
 | keyPrefix | string | 前缀 |
 | expiresAt | string/null | 过期时间 |
@@ -188,6 +199,7 @@
 
 ### 5.4 删除
 - **DELETE** `/api/v1/push-services/:id`
+- 撤销绑定此服务的 API Key，删除该服务的绑定和投递记录；平台配置仍绑定其他服务时保留，最后一个绑定服务删除时才级联删除配置。
 
 以上接口均需 JWT。
 
@@ -225,13 +237,31 @@
 
 | 字段 | 类型 | 必填 | 说明 |
 |---|---|---:|---|
-| serviceId | string | 创建必填 | 所属服务 ID |
+| serviceIds | string[] | 创建时与 `serviceId` 至少提供一个 | 绑定服务 ID 列表，至少一项、不能重复，所有服务须属于当前用户；更新时整体替换绑定 |
+| serviceId | string | 兼容字段 | 旧版单服务调用方式，等同于 `serviceIds: [serviceId]`；同时提供两者时必须等于 `serviceIds` 首项 |
 | platform | string | 创建必填 | 平台名（如 WPush） |
 | configName | string | 创建必填 | 配置名称 |
 | configPayload | object | 创建必填 | 平台配置载荷 |
 | tags | string | 否 | 逗号分隔标签 |
 | priority | number(int) | 否 | 优先级（越小越高） |
 | isEnabled | boolean | 否 | 是否启用 |
+
+列表、创建和更新响应保留原配置字段，新增 `serviceIds`（全部绑定服务 ID）和 `services`（全部绑定服务对象），`serviceId` / `service` 表示首个绑定服务。服务列表的顺序除首项外不保证与提交顺序一致。
+
+同一份平台配置共用 `configPayload`、名称、标签、优先级和启用状态；编辑会影响全部绑定服务。每个服务内同一平台的配置名称须唯一，冲突返回 `409`。绑定不属于当前用户或不存在的服务返回 `404`，空列表、重复 ID 或不一致的兼容字段返回 `400`；失败时不会部分修改配置或绑定。更新不传绑定字段时保留已有绑定。
+
+创建多服务配置示例（JWT 认证）：
+
+```json
+{
+  "serviceIds": ["svc_alerts", "svc_updates"],
+  "platform": "WPush",
+  "configName": "共用通知渠道",
+  "configPayload": { "key": { "token": "your-platform-token" } }
+}
+```
+
+删除平台配置会删除其全部服务绑定和相关投递记录，不会删除服务本身。
 
 ---
 
@@ -272,7 +302,8 @@
 
 发送规则：
 
-- 自动向当前 API Key 所属用户下所有“已启用配置 + 已启用服务”发送。
+- 只向当前 API Key 绑定的服务下所有已启用的平台配置发送，服务本身也必须启用。
+- 同一平台配置可供多个服务共用；一次请求中只投递一次，使用当前密钥绑定服务的超时设置，日志中的 `serviceId` 记录实际调用服务。
 
 成功响应（兼容字段始终存在）：
 
@@ -420,6 +451,6 @@ curl -X POST "http://localhost:3000/api/v1/push/send" \
 - `requestId` 全局唯一，重复返回 409；不保证第三方 exactly-once 送达。
 - 删除服务会撤销所有绑定密钥，不能使用旧密钥调用同名新服务。
 - 错误状态保留 400 / 401 / 403 / 404 / 409 / 429；API 响应禁止缓存。
-- 禁止禁用当前登录账户；所有用户响应都不包含密码哈希。
+- 禁止禁用或删除当前登录账户；所有用户响应都不包含密码哈希。
 - 私有网络和用户代理默认被禁止；自建内网环境需显式配置 `ALLOW_PRIVATE_NETWORK=true`。邮件不允许引用服务器文件或远程 URL 附件。
 - 设置 `ALLOW_REGISTRATION=false` 后注册返回 403。

@@ -38,15 +38,19 @@ export function registerPushRoutes(app: FastifyInstance) {
       const body = pushSchema.parse(request.body);
       await prisma.apiKey.update({ where: { id: apiKey.id }, data: { lastUsedAt: new Date() } });
 
-      const configs = await prisma.channelConfig.findMany({
+      const serviceFilter = { userId: apiKey.userId, isEnabled: true, name: apiKey.serviceName };
+      const boundConfigs = await prisma.channelConfig.findMany({
         where: {
           userId: apiKey.userId,
           isEnabled: true,
-          service: { isEnabled: true, name: apiKey.serviceName }
+          bindings: { some: { service: serviceFilter } }
         },
-        include: { service: true },
+        include: { bindings: { where: { service: serviceFilter }, include: { service: true } } },
         orderBy: [{ priority: 'asc' }, { createdAt: 'asc' }]
       });
+      const configs = boundConfigs.map(({ bindings, ...config }) => ({
+        ...config, serviceId: bindings[0].serviceId, service: bindings[0].service
+      }));
 
       if (!configs.length)
         return reply.code(400).send({ message: `服务 ${apiKey.serviceName} 下没有匹配到可用推送配置` });

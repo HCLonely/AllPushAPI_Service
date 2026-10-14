@@ -45,14 +45,14 @@ export default function ServicesPage({
               </div>
               <h3>{service.name}</h3>
               <p className="muted">
-                {configs.filter((c) => c.serviceId === service.id).length} 个平台配置 · 超时{' '}
+                {configs.filter((c) => c.serviceIds.includes(service.id)).length} 个平台配置 · 超时{' '}
                 {(service.timeoutMs || 10000) / 1000} 秒
               </p>
               <div className="service-card-bottom">
                 <Button onClick={() => edit(service)}>管理服务</Button>
                 <Popconfirm
                   title="删除此服务？"
-                  description="关联配置和投递记录将删除，绑定密钥将被撤销。"
+                  description="绑定密钥将撤销，本服务的投递记录将删除；仍绑定其他服务的配置会保留。"
                   onConfirm={async () => {
                     try {
                       await api.delete(`/v1/push-services/${service.id}`, { headers });

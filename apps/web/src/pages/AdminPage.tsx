@@ -28,11 +28,13 @@ export default function AdminPage({
   const [days, setDays] = useState(retention);
   const [form] = Form.useForm();
   const [saving, setSaving] = useState(false);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [accessLogs, setAccessLogs] = useState<any[]>([]);
   const [accessPage, setAccessPage] = useState(1);
   const [accessPageSize, setAccessPageSize] = useState(20);
   const [accessTotal, setAccessTotal] = useState(0);
   const [accessLoading, setAccessLoading] = useState(false);
+  const [accessVersion, setAccessVersion] = useState(0);
 
   useEffect(() => setDays(retention), [retention]);
 
@@ -57,7 +59,7 @@ export default function AdminPage({
 
     fetchAccessLogs();
     return () => controller.abort();
-  }, [headers, accessPage, accessPageSize]);
+  }, [headers, accessPage, accessPageSize, accessVersion]);
 
   return (
     <Space direction="vertical" style={{ width: '100%' }}>
@@ -131,7 +133,7 @@ export default function AdminPage({
           style={{ marginTop: 16 }}
           rowKey="id"
           dataSource={users}
-          scroll={{ x: 620 }}
+          scroll={{ x: 700 }}
           pagination={{ pageSize: 10 }}
           columns={[
             { title: '用户名', dataIndex: 'username', key: 'username' },
@@ -146,8 +148,8 @@ export default function AdminPage({
             {
               title: '操作',
               key: 'actions',
-              width: 180,
-              render: (_: unknown, u: any) => (
+              width: 240,
+              render: (_: unknown, u: User) => (
                 <Space>
                   <Button
                     size="small"
@@ -183,6 +185,36 @@ export default function AdminPage({
                   >
                     <Button size="small" danger disabled={u.id === currentUserId || u.status === 'DISABLED'}>
                       禁用
+                    </Button>
+                  </Popconfirm>
+                  <Popconfirm
+                    title={`删除用户「${u.username}」？`}
+                    description="将永久删除该用户及其服务、平台配置、API 密钥和日志，无法恢复。"
+                    disabled={u.id === currentUserId || deletingUserId !== null}
+                    okText="确认删除"
+                    okButtonProps={{ danger: true }}
+                    cancelText="取消"
+                    onConfirm={async () => {
+                      setDeletingUserId(u.id);
+                      try {
+                        await api.delete(`/v1/admin/users/${u.id}`, { headers });
+                        setAccessVersion((version) => version + 1);
+                        await reload();
+                        message.success('用户已删除');
+                      } catch (error) {
+                        message.error(getApiErrorMessage(error, '删除用户失败'));
+                      } finally {
+                        setDeletingUserId(null);
+                      }
+                    }}
+                  >
+                    <Button
+                      size="small"
+                      danger
+                      disabled={u.id === currentUserId || (deletingUserId !== null && deletingUserId !== u.id)}
+                      loading={deletingUserId === u.id}
+                    >
+                      删除
                     </Button>
                   </Popconfirm>
                 </Space>

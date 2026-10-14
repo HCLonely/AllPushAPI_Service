@@ -4,7 +4,8 @@ import { z } from 'zod';
 import { ApiKeyStatus } from '@prisma/client';
 import { prisma } from '../db.js';
 import { loadPlatformTemplates, normalizePlatform } from '../templates.js';
-import { createApiKeySchema, pushServiceSchema, channelSchema } from '../schemas.js';
+import { createApiKeySchema, pushServiceSchema, channelSchema, channelUpdateSchema } from '../schemas.js';
+import { channelInclude, serializeChannel, validateChannelServices } from '../channel-bindings.js';
 const hash = (value: string) => crypto.createHash('sha256').update(value).digest('hex');
 
 export function registerResourcesRoutes(app: FastifyInstance, verifyJwt: preHandlerHookHandler) {
@@ -105,13 +106,26 @@ export function registerResourcesRoutes(app: FastifyInstance, verifyJwt: preHand
       where: { id: request.params.id, userId: request.user.id }
     });
     if (!row) return reply.code(404).send({ message: '服务不存在' });
-    await prisma.$transaction([
-      prisma.apiKey.updateMany({
+    await prisma.$transaction(async (tx) => {
+      // Move the legacy primary reference before its cascading foreign key is
+      // deleted, so configs shared with another service survive.
+      const primaryConfigs = await tx.channelConfig.findMany({
+        where: { userId: request.user.id, serviceId: row.id },
+        include: { bindings: { where: { serviceId: { not: row.id } }, orderBy: { serviceId: 'asc' } } }
+      });
+      for (const config of primaryConfigs) {
+        if (config.bindings.length) {
+          await tx.channelConfig.update({
+            where: { id: config.id }, data: { serviceId: config.bindings[0].serviceId }
+          });
+        }
+      }
+      await tx.apiKey.updateMany({
         where: { userId: request.user.id, serviceName: row.name },
         data: { status: ApiKeyStatus.REVOKED, revokedAt: new Date() }
-      }),
-      prisma.pushService.delete({ where: { id: row.id } })
-    ]);
+      });
+      await tx.pushService.delete({ where: { id: row.id } });
+    });
     return { success: true };
   });
 
@@ -120,37 +134,55 @@ export function registerResourcesRoutes(app: FastifyInstance, verifyJwt: preHand
       .object({ serviceId: z.string().optional(), platform: z.string().optional() })
       .parse(request.query);
     const items = await prisma.channelConfig.findMany({
-      where: { userId: request.user.id, serviceId: q.serviceId, platform: q.platform },
-      include: { service: true },
+      where: {
+        userId: request.user.id, platform: q.platform,
+        bindings: q.serviceId ? { some: { serviceId: q.serviceId } } : undefined
+      },
+      include: channelInclude,
       orderBy: [{ priority: 'asc' }, { createdAt: 'desc' }]
     });
-    return { items };
+    return { items: items.map(serializeChannel) };
   });
 
-  app.post('/api/v1/channel-configs', { preHandler: [verifyJwt] }, async (request: any, reply) => {
-    const body = channelSchema.parse(request.body);
-    const service = await prisma.pushService.findFirst({
-      where: { id: body.serviceId, userId: request.user.id }
+  app.post('/api/v1/channel-configs', { preHandler: [verifyJwt] }, async (request: any) => {
+    const { serviceId, serviceIds: selectedIds, ...body } = channelSchema.parse(request.body);
+    const serviceIds = selectedIds ?? [serviceId!];
+    const config = await prisma.$transaction(async (tx) => {
+      await validateChannelServices(tx, request.user.id, serviceIds, body.platform, body.configName);
+      return tx.channelConfig.create({
+        data: {
+          userId: request.user.id, ...body, serviceId: serviceIds[0],
+          bindings: { create: serviceIds.map((id) => ({ serviceId: id })) }
+        },
+        include: channelInclude
+      });
     });
-    if (!service) return reply.code(404).send({ message: '推送服务不存在' });
-    return prisma.channelConfig.create({ data: { userId: request.user.id, ...body } });
+    return serializeChannel(config);
   });
 
   app.patch('/api/v1/channel-configs/:id', { preHandler: [verifyJwt] }, async (request: any, reply) => {
-    const body = channelSchema.partial().parse(request.body);
-    const row = await prisma.channelConfig.findFirst({
-      where: { id: request.params.id, userId: request.user.id }
-    });
-    if (!row) return reply.code(404).send({ message: '配置不存在' });
-
-    if (body.serviceId) {
-      const service = await prisma.pushService.findFirst({
-        where: { id: body.serviceId, userId: request.user.id }
+    const { serviceId, serviceIds: selectedIds, ...body } = channelUpdateSchema.parse(request.body);
+    const config = await prisma.$transaction(async (tx) => {
+      const row = await tx.channelConfig.findFirst({
+        where: { id: request.params.id, userId: request.user.id }, include: channelInclude
       });
-      if (!service) return reply.code(404).send({ message: '推送服务不存在' });
-    }
-
-    return prisma.channelConfig.update({ where: { id: row.id }, data: body });
+      if (!row) return null;
+      const serviceIds = selectedIds ?? (serviceId ? [serviceId] : serializeChannel(row).serviceIds);
+      await validateChannelServices(tx, request.user.id, serviceIds,
+        body.platform ?? row.platform, body.configName ?? row.configName, row.id);
+      return tx.channelConfig.update({
+        where: { id: row.id },
+        data: {
+          ...body, serviceId: serviceIds[0],
+          ...(selectedIds || serviceId ? {
+            bindings: { deleteMany: {}, create: serviceIds.map((id) => ({ serviceId: id })) }
+          } : {})
+        },
+        include: channelInclude
+      });
+    });
+    if (!config) return reply.code(404).send({ message: '配置不存在' });
+    return serializeChannel(config);
   });
 
   app.delete('/api/v1/channel-configs/:id', { preHandler: [verifyJwt] }, async (request: any, reply) => {

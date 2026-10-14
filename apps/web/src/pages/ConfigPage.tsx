@@ -101,7 +101,7 @@ export default function ConfigPage({
     const payload = item.configPayload || {};
     form.resetFields();
     form.setFieldsValue({
-      serviceId: item.serviceId,
+      serviceIds: item.serviceIds,
       platform: item.platform,
       configName: item.configName,
       tags: item.tags,
@@ -205,7 +205,7 @@ export default function ConfigPage({
           >
             <List.Item.Meta
               title={`${item.platform} / ${item.configName}`}
-              description={`${item.isEnabled ? '已启用' : '已停用'} · ${services.find((service: PushService) => service.id === item.serviceId)?.name || '未关联服务'} · 优先级 ${item.priority}${item.tags ? ` · ${item.tags}` : ''}`}
+              description={`${item.isEnabled ? '已启用' : '已停用'} · ${services.filter((service) => item.serviceIds.includes(service.id)).map((service) => service.name).join('、') || '未关联服务'} · 优先级 ${item.priority}${item.tags ? ` · ${item.tags}` : ''}`}
             />
           </List.Item>
         )}
@@ -244,7 +244,7 @@ export default function ConfigPage({
             }
             setSaving(true);
             const requestBody = {
-              serviceId: v.serviceId,
+              serviceIds: v.serviceIds,
               platform: v.platform,
               configName: v.configName,
               tags: v.tags,
@@ -272,12 +272,17 @@ export default function ConfigPage({
       >
         <Form form={form} layout="vertical" initialValues={{ priority: 100 }}>
           <Form.Item
-            label="服务"
-            name="serviceId"
-            rules={[{ required: true }]}
-            tooltip="选择该平台配置归属的推送服务"
+            label="绑定服务"
+            name="serviceIds"
+            rules={[{ required: true, type: 'array', min: 1, message: '请至少选择一个推送服务' }]}
+            tooltip="可选择多个服务，共用此平台配置；修改配置会应用到所有绑定服务"
           >
-            <Select options={services.map((s: any) => ({ value: s.id, label: s.name }))} />
+            <Select
+              mode="multiple"
+              optionFilterProp="label"
+              placeholder="选择一个或多个推送服务"
+              options={services.map((service) => ({ value: service.id, label: service.name }))}
+            />
           </Form.Item>
 
           <Form.Item

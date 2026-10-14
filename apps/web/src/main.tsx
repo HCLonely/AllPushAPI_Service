@@ -11,13 +11,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ConfigProvider
       locale={zhCN}
-      getPopupContainer={(trigger) => trigger?.parentElement || document.body}
       theme={{
         token: {
           colorPrimary: '#087f68',
           borderRadius: 10,
           controlHeight: 40,
-          motion: !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+          // CSS handles reduced motion while preserving popup alignment callbacks.
           fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif',
           colorBgLayout: '#f5f7f7',
           colorBgContainer: '#ffffff'

@@ -101,4 +101,21 @@ export function registerAccountsRoutes(
       });
     }
   );
+
+  app.delete('/api/v1/admin/users/:id', { preHandler: [verifyJwt, requireAdmin] }, async (request: any, reply) => {
+    const id = String(request.params.id);
+    if (id === request.currentUser.id)
+      return reply.code(400).send({ message: '不能删除当前登录账号' });
+    const deleted = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({ where: { id }, select: { id: true } });
+      if (!user) return false;
+      await tx.accessLog.deleteMany({ where: { userId: id } });
+      await tx.systemSetting.updateMany({ where: { updatedBy: id }, data: { updatedBy: null } });
+      // Foreign keys cascade to keys, services, configs, routing and push logs.
+      await tx.user.delete({ where: { id } });
+      return true;
+    });
+    if (!deleted) return reply.code(404).send({ message: '用户不存在' });
+    return { success: true };
+  });
 }
