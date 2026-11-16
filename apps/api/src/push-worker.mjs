@@ -44,6 +44,47 @@ if (!privateAllowed) {
   };
 }
 
+// 只提取固定诊断和数值状态，不序列化 SDK 错误中的令牌、请求头或 URL。
+function goCqhttpMessage(result) {
+  const message = String(result.statusText || '推送失败');
+  const detail = result.extraMessage;
+  if (result.status === 102) {
+    if ([detail?.message, detail?.cause?.message].includes('Private network access denied')) {
+      return `${message}: 内网访问被禁止；受信任部署请设置 ALLOW_PRIVATE_NETWORK=true 并重启服务`;
+    }
+    const httpStatus = detail?.response?.status;
+    if (Number.isInteger(httpStatus) && httpStatus >= 100 && httpStatus <= 599) {
+      const hint = httpStatus === 401 || httpStatus === 403
+        ? '；请检查 NapCat HTTP 服务的 token 和访问权限'
+        : httpStatus === 404
+          ? '；请检查 baseUrl 是否指向 HTTP API 根地址，SDK 会自动追加 /send_msg'
+          : '';
+      return `${message}: HTTP ${httpStatus}${hint}`;
+    }
+    const hints = {
+      ECONNREFUSED: '连接被拒绝，请检查 HTTP 服务是否启动及地址、端口是否正确',
+      ENOTFOUND: '域名无法解析，请检查 HTTP 服务地址',
+      EAI_AGAIN: 'DNS 解析暂时失败',
+      ETIMEDOUT: '连接超时，请检查网络和防火墙',
+      ECONNABORTED: '请求超时或被中止',
+      ECONNRESET: '连接被重置，请检查 HTTP 服务及代理',
+      ERR_INVALID_URL: 'HTTP 服务地址无效',
+      ERR_TLS_CERT_ALTNAME_INVALID: 'HTTPS 证书与域名不匹配',
+      DEPTH_ZERO_SELF_SIGNED_CERT: 'HTTPS 使用了不受信任的自签名证书'
+    };
+    for (const code of [detail?.code, detail?.cause?.code]) {
+      if (Object.hasOwn(hints, code)) {
+        return `${message}: ${code}；${hints[code]}`;
+      }
+    }
+  }
+  const retcode = detail?.data?.retcode;
+  if (result.status !== 200 && Number.isInteger(retcode)) {
+    return `${message}: OneBot retcode=${retcode}；请检查 NapCat 日志及目标账号、群号`;
+  }
+  return message;
+}
+
 try {
   const { PushApi } = await import('all-pusher-api');
   const { platform, config } = workerData;
@@ -74,7 +115,12 @@ try {
   // Persist only the normalized status; never serialize the transport response.
   parentPort.postMessage(
     result
-      ? { status: result.status, message: String(result.statusText || '推送失败') }
+      ? {
+          status: result.status,
+          message: platform.toLowerCase() === 'gocqhttp'
+            ? goCqhttpMessage(result)
+            : String(result.statusText || '推送失败')
+        }
       : { message: '不支持的平台或没有投递结果' }
   );
 } catch {

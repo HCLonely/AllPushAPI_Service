@@ -16,3 +16,4 @@ data/
 artifacts/
 playwright-report/
 test-results/
+/apps/api/test/
