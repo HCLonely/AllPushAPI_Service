@@ -656,6 +656,9 @@ p {
   }
   .ant-list-item-action {
     margin-inline-start: 0 !important;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 0;
   }
   .ant-card-body {
     padding: 20px !important;

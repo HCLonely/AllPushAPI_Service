@@ -14,6 +14,7 @@ import {
   message
 } from 'antd';
 import { ActionButton } from '../components/ActionButton';
+import { ChannelTestModal } from '../components/ChannelTestModal';
 import { api, getApiErrorMessage } from '../api';
 import type { PushService, ChannelConfig, TemplateField, TemplatePlatform, ResourceProps } from '../types';
 import { toPayloadBySchema, setDefaultBySchema, toFormValues } from '../template';
@@ -82,6 +83,7 @@ export default function ConfigPage({
   const [advanced, setAdvanced] = useState(false);
   const [schema, setSchema] = useState<TemplateField[]>([]);
   const [editingConfig, setEditingConfig] = useState<ChannelConfig | null>(null);
+  const [testConfig, setTestConfig] = useState<ChannelConfig | null>(null);
   const [form] = Form.useForm();
   const selectedPlatform = Form.useWatch('platform', form);
 
@@ -186,6 +188,10 @@ export default function ConfigPage({
                 {item.isEnabled ? '禁用' : '启用'}
               </ActionButton>,
               <Button onClick={() => openEdit(item)}>编辑</Button>,
+              <Button
+                disabled={!item.isEnabled || !services.some((service) => item.serviceIds.includes(service.id) && service.isEnabled)}
+                onClick={() => setTestConfig(item)}
+              >发送测试</Button>,
               <Popconfirm
                 title="删除此平台配置？"
                 description="相关投递记录也将删除。"
@@ -210,6 +216,12 @@ export default function ConfigPage({
           </List.Item>
         )}
       />
+      {testConfig && <ChannelTestModal
+        config={testConfig}
+        services={services}
+        headers={headers}
+        onClose={() => setTestConfig(null)}
+      />}
       <Modal
         open={open}
         confirmLoading={saving}

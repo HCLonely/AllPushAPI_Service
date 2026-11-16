@@ -15,6 +15,7 @@ import { ensureAdmin, getRetentionDays, cleanupLogs } from './maintenance.js';
 import { registerAccountsRoutes } from './routes/accounts.js';
 import { registerResourcesRoutes } from './routes/resources.js';
 import { registerPushRoutes } from './routes/push.js';
+import { registerChannelTestRoutes } from './routes/channel-test.js';
 import { registerLogsRoutes } from './routes/logs.js';
 import { ensureChannelServiceBindings } from './channel-bindings.js';
 
@@ -124,6 +125,7 @@ export const createServer = async () => {
 
   registerAccountsRoutes(app, verifyJwt, requireAdmin);
   registerResourcesRoutes(app, verifyJwt);
+  registerChannelTestRoutes(app, verifyJwt);
   registerPushRoutes(app);
   registerLogsRoutes(app, verifyJwt, requireAdmin);
 

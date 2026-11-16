@@ -263,6 +263,39 @@
 
 删除平台配置会删除其全部服务绑定和相关投递记录，不会删除服务本身。
 
+### 6.5 发送测试
+
+- **POST** `/api/v1/channel-configs/:id/test`
+- 认证：JWT，只允许测试当前用户的已保存配置，不需要 API Key。
+- 真实发送且只投递当前配置，使用所选服务的超时；不发送其他配置，不自动重试。沿用 `PUSH_RATE_LIMIT_MAX` / `PUSH_RATE_LIMIT_WINDOW` 限流。
+
+请求体可省略或传 `{}`：
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---:|---|
+| serviceId | string | 否 | 必须是当前配置绑定的已启用服务；省略时优先首服务，否则选择一个已启用的绑定服务 |
+| title | string | 否 | 最多 200 字符，默认“平台配置发送测试” |
+| message | string | 否 | 去除首尾空白后 1–10000 字符，默认“这是一条来自 All Push API 的测试消息。” |
+
+成功执行返回 `200`，平台投递失败也返回 `200`，以 `status` 区分实际结果：
+
+```json
+{
+  "requestId": "test-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "status": "SUCCESS",
+  "message": "Success",
+  "responseCode": 200,
+  "latencyMs": 355,
+  "serviceId": "svc_alerts",
+  "channelConfigId": "config_id",
+  "logId": "push_request_id"
+}
+```
+
+`status` 为 `SUCCESS` 或 `FAILED`；`responseCode` 是 SDK 状态码（不一定是 HTTP 状态码），无状态码时为 `null`。`message` 为脱敏诊断，`latencyMs` 为投递耗时（毫秒）。结果写入推送日志，`payload.source` 为 `channel-test`，可通过 `GET /api/v1/logs/push-requests/:logId` 查询。投递超时、客户端请求超时或连接中断时，实际送达结果可能未知，应先检查收件情况及投递日志再重试。
+
+未认证返回 `401`；配置不存在或属于其他用户返回 `404`；配置/服务停用、服务未绑定、正文为空或请求参数无效返回 `400`；请求过于频繁返回 `429`。
+
 ---
 
 ## 7. 平台模板（Templates）
